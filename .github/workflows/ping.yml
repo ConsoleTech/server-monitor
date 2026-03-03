@@ -1,19 +1,36 @@
-name: Server TCP Monitor
+name: Server Monitor with Discord Alerts
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"  # every 5 minutes
   workflow_dispatch:
 
 jobs:
-  check_tcp:
+  monitor:
     runs-on: ubuntu-latest
     steps:
-      - name: Check HTTP port
+      - name: Check TCP port
+        id: check
         run: |
-          if ! nc -zv 51.75.147.109 80; then
-            echo "Server port 80 is down!"
-            exit 1
+          SERVER_IP="51.75.147.109"   # Replace with your server IP
+          PORT=80                      # Change if you want another port
+          
+          # Try to connect with timeout 10 seconds
+          if timeout 10 bash -c "cat < /dev/null > /dev/tcp/$SERVER_IP/$PORT"; then
+            echo "server_up=true" >> $GITHUB_OUTPUT
           else
-            echo "Server is up ✅"
+            echo "server_up=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Send Discord alert
+        if: always()
+        run: |
+          WEBHOOK_URL="https://discord.com/api/webhooks/1478357236219646024/QfANtPuIvj1DANtQMZ3r1oz7YWcshHWkYc1tmwLPk5JRcM3PMyWEcK8paIAr-L2JK0RC"
+          
+          if [ "${{ steps.check.outputs.server_up }}" == "false" ]; then
+            MESSAGE="{\"content\": \"⚠️ Server $SERVER_IP is DOWN (port $PORT unreachable)!\"}"
+          else
+            MESSAGE="{\"content\": \"✅ Server $SERVER_IP is BACK UP (port $PORT reachable).\"}"
+          fi
+          
+          curl -H "Content-Type: application/json" -d "$MESSAGE" "$WEBHOOK_URL"

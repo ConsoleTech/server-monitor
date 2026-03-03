@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Check HTTP port
         run: |
-          if ! nc -zv YOUR_SERVER_IP 80; then
+          if ! nc -zv 51.75.147.109 80; then
             echo "Server port 80 is down!"
             exit 1
           else
